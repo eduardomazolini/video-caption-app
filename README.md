@@ -30,3 +30,32 @@ Gostaria de tirar um evento que chama outro pra colocar lineamente mas fica pra 
 HardCode para repetir o processo.
 
 - Não funcionou no Windows use WSL pelo menos.
+
+### Notas de comandos usados
+```
+ffmpeg -i input.mp4 -vf "scale=iw*min(1080/iw\,1350/ih):ih*min(1080/iw\,1350/ih),pad=1080:1350:(1080-iw*min(1080/iw\,1350/ih))/2:(1350-ih*min(1080/iw\,1350/ih))/2:0x662464ff" -c:a copy output.mp4
+
+ffmpeg -i output.mp4 -i ret-bot1920.png -filter_complex "[0:v][1:v] overlay=(W-w)/2:(H-h)" -c:a copy output_with_border.mp4
+ffmpeg -i output.mp4 -i ret-top1350.png -filter_complex "[0:v][1:v] overlay=(W-w)/2:0"     -c:a copy output_with_border.mp4
+
+ffmpeg -i output_with_border.mp4 -vf "drawtext=fontfile='RubikDirt.ttf': \
+text='Cuca Jorge': fontcolor=white: fontsize=120: \
+x=(w-text_w)/2: y=h-(text_h)-50" -codec:a copy output-cuca.mp4
+
+convert -size 1080x1350 xc:none \
+     ret-top720.png -gravity north -geometry +0+0 -composite\
+     ret-botton1920.png -gravity south -geometry +0+0 -composite \
+    -font "RubikDirt.ttf" -pointsize 110 -fill white -gravity south \
+    -annotate +0+45 "Cuca Jorge" \
+ output.png
+
+ffmpeg -i output.mp4 -i output.png \
+  -filter_complex "[0:v][1:v] overlay=(W-w)/2:(H-h)/2" \
+  -c:a copy output_with_border.mp4
+
+ffmpeg -i input.mp4 -i output.png -filter_complex "\
+[0:v]scale=iw*min(1080/iw\,1350/ih):ih*min(1080/iw\,1350/ih),pad=1080:1350:(1080-iw*min(1080/iw\,1350/ih))/2:(1350-ih*min(1080/iw\,1350/ih))/2:0x662464ff[bg]; \
+[bg][1:v]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2" \
+-c:a copy output.mp4
+
+```
