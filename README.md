@@ -39,7 +39,7 @@ ffmpeg -i output.mp4 -i ret-bot1920.png -filter_complex "[0:v][1:v] overlay=(W-w
 ffmpeg -i output.mp4 -i ret-top1350.png -filter_complex "[0:v][1:v] overlay=(W-w)/2:0"     -c:a copy output_with_border.mp4
 
 ffmpeg -i output_with_border.mp4 -vf "drawtext=fontfile='RubikDirt.ttf': \
-text='Cuca Jorge': fontcolor=white: fontsize=120: \
+text='TEXTO TEXTO': fontcolor=white: fontsize=120: \
 x=(w-text_w)/2: y=h-(text_h)-50" -codec:a copy output-cuca.mp4
 
 convert -size 1080x1350 xc:none \
@@ -58,4 +58,19 @@ ffmpeg -i input.mp4 -i output.png -filter_complex "\
 [bg][1:v]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2" \
 -c:a copy output.mp4
 
+```
+
+### Corte no Topo
+```
+ffmpeg -i input.mp4 -vf "scale=1080:-1,crop=1080:1350:0:0" -c:a copy output_top.mp4
+```
+
+### Corte no Centro
+```
+ffmpeg -i input.mp4 -vf "scale=1080:-1,crop=1080:1350:0:(ih-1350)/2" -c:a copy output_center.mp4
+```
+
+### Corte no Inferior
+```
+ffmpeg -i input.mp4 -vf "scale=1080:-1,crop=1080:1350:0:ih-1350" -c:a copy output_bottom.mp4
 ```
