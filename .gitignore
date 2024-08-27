@@ -3,3 +3,8 @@
 /uploads/*
 output_*
 input_*
+*.png
+*.mp4
+*.svg
+*.wmf
+*.ttf
