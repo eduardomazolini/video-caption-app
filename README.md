@@ -60,6 +60,11 @@ ffmpeg -i input.mp4 -i output.png -filter_complex "\
 
 ```
 
+### Resize
+```
+convert 1.png -resize 1080x 1-1080.png
+```
+
 ### Corte no Topo
 ```
 ffmpeg -i input.mp4 -vf "scale=1080:-1,crop=1080:1350:0:0" -c:a copy output_top.mp4
