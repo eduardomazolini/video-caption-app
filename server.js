@@ -14,7 +14,9 @@ const upload = multer({ dest: 'uploads/' });
 
 app.use(express.static('public')); // Pasta para arquivos estáticos (HTML, CSS, etc.)
 
-app.post('/upload', upload.single('video'), async (req, res) => {
+app.post('/upload', upload.single('video'), LegendaUploadFile);
+
+async function LegendaUploadFile(req, res) {
   const videoPath = req.file.path;
   //const videoPath = 'uploads/6972a0d9ec177155da436b29e90c200b'
   const audioPath = `${videoPath}.mp3`;
@@ -68,9 +70,9 @@ app.post('/upload', upload.single('video'), async (req, res) => {
     fs.unlink(videoPath, () => {});
     fs.unlink(audioPath, () => {});
   }
-});
+}
 
-const extractAudio = (videoPath, audioPath) => {
+function extractAudio(videoPath, audioPath) {
   return new Promise((resolve, reject) => {
     ffmpeg(videoPath)
       .output(audioPath)
@@ -78,9 +80,9 @@ const extractAudio = (videoPath, audioPath) => {
       .on('error', reject)
       .run();
   });
-};
+}
 
-const generateSubtitles = async (audioPath) => {
+async function generateSubtitles(audioPath) {
   const apiKey = process.env.OPENAI_API_KEY;
   const formData = new FormData();
   formData.append('file', fs.createReadStream(audioPath));
@@ -120,18 +122,18 @@ const generateSubtitles = async (audioPath) => {
 
     subtitles += `Dialogue: 0,${formatTime(startTime)},${formatTime(endTime)},Default,,0,0,0,,${text}\n`;
 
-//    subtitles += `${index + 1}\n`;
-//    subtitles += `${formatTime(startTime)} --> ${formatTime(endTime)}\n`;
-//    subtitles += `${text}\n\n`;
+    //    subtitles += `${index + 1}\n`;
+    //    subtitles += `${formatTime(startTime)} --> ${formatTime(endTime)}\n`;
+    //    subtitles += `${text}\n\n`;
   });
   return subtitles;
-};
+}
 
-const saveSubtitlesToFile = (subtitles, filePath) => {
+function saveSubtitlesToFile(subtitles, filePath) {
   return fs.promises.writeFile(filePath, subtitles);
-};
+}
 
-const attachSubtitles = (videoPath, subtitlesPath, outputPath) => {
+function attachSubtitles(videoPath, subtitlesPath, outputPath) {
   return new Promise((resolve, reject) => {
     ffmpeg(videoPath)
       .outputOptions('-vf', `subtitles=${subtitlesPath}`)
@@ -140,19 +142,18 @@ const attachSubtitles = (videoPath, subtitlesPath, outputPath) => {
       .on('error', reject)
       .run();
   });
-};
+}
 
-
-const splitAudioWithOverlap = (audioPath, segmentDuration = 1200, overlapDuration = 10) => {
+function splitAudioWithOverlap(audioPath, segmentDuration = 1200, overlapDuration = 10) {
   return new Promise((resolve, reject) => {
     const segmentFiles = [];
     let startTime = 0;
     let segmentIndex = 0;
 
     const segmentAudio = () => {
-      const outputSegmentPath = path.join(path.dirname(audioPath), path.basename(audioPath,'.mp3')+`-${segmentIndex}.mp3`);
+      const outputSegmentPath = path.join(path.dirname(audioPath), path.basename(audioPath, '.mp3') + `-${segmentIndex}.mp3`);
       segmentFiles.push(outputSegmentPath);
-      
+
       ffmpeg(audioPath)
         .setStartTime(startTime)
         .setDuration(segmentDuration + overlapDuration)
@@ -177,12 +178,12 @@ const splitAudioWithOverlap = (audioPath, segmentDuration = 1200, overlapDuratio
       segmentAudio();
     });
   });
-};
+}
 
 
-const splitAudio = (audioPath, segmentDuration = 1200, overlapDuration = 10) => {
+function splitAudio(audioPath, segmentDuration = 1200, overlapDuration = 10) {
   return new Promise((resolve, reject) => {
-    const outputPattern = path.join(path.dirname(audioPath),path.basename(audioPath,'.mp3')+'-%03d.mp3');
+    const outputPattern = path.join(path.dirname(audioPath), path.basename(audioPath, '.mp3') + '-%03d.mp3');
     ffmpeg(audioPath)
       .outputOptions([
         '-f', 'segment',
@@ -197,16 +198,16 @@ const splitAudio = (audioPath, segmentDuration = 1200, overlapDuration = 10) => 
         const segmentDir = path.dirname(audioPath);
         fs.readdir(segmentDir, (err, files) => {
           if (err) reject(err);
-          const segmentFiles = files.filter(file => file.startsWith(path.basename(audioPath,'.mp3')+'-') && file.endsWith('.mp3'));
+          const segmentFiles = files.filter(file => file.startsWith(path.basename(audioPath, '.mp3') + '-') && file.endsWith('.mp3'));
           resolve(segmentFiles.map(file => path.join(segmentDir, file)));
         });
       })
       .on('error', reject)
       .run();
   });
-};
+}
 
-const transcribeSegment = async (segmentPath) => {
+async function transcribeSegment(segmentPath) {
   const savedResponseData = loadObjectWithHash(segmentPath);
   if (savedResponseData != null) return savedResponseData.segments;
 
@@ -226,62 +227,61 @@ const transcribeSegment = async (segmentPath) => {
       },
     }
   );
-  const res = response.data
-  saveObjectWithHash(segmentPath, res)
+  const res = response.data;
+  saveObjectWithHash(segmentPath, res);
   return res.segments;
-};
+}
 
 
-const combineTranscriptions = (segmentsTranscriptions, segmentDuration = 1200, overlapDuration = 10) => {
+function combineTranscriptions(segmentsTranscriptions, segmentDuration = 1200, overlapDuration = 10) {
   let combinedTranscriptions = [];
   const endOfSentence = /.*\w\.$/;
   let nextEnd = 0;
 
   segmentsTranscriptions.forEach((segments, segmentIndex) => {
-    let timeShift = segmentIndex * segmentDuration
-    let segmentEnd = timeShift + segmentDuration
-    let segmentBegin = timeShift + overlapDuration
+    let timeShift = segmentIndex * segmentDuration;
+    let segmentEnd = timeShift + segmentDuration;
+    let segmentBegin = timeShift + overlapDuration;
     segments.forEach(segment => {
       segment.start += timeShift;
       segment.end += timeShift;
     });
     let isEndOfSentence = false;
     segments.forEach(segment => {
-  
+
       //no inicio o segmento pode ser que de um erro de ms já incluido
-      if (segment.end < segmentBegin){
-        if (-1 < nextEnd - segment.end && nextEnd - segment.end  < 1 ) nextEnd = segment.end
+      if (segment.end < segmentBegin) {
+        if (-1 < nextEnd - segment.end && nextEnd - segment.end < 1) nextEnd = segment.end;
       }
 
       //inclui todos os segmentos que são depois do arquivo pre existente
-      if (segment.end < segmentBegin && (nextEnd < segment.end) ){
+      if (segment.end < segmentBegin && (nextEnd < segment.end)) {
         combinedTranscriptions.push(segment);
       }
       //o segmento é exclusivo deste trecho
-      if (segment.start < segmentEnd && segmentBegin < segment.end){
+      if (segment.start < segmentEnd && segmentBegin < segment.end) {
         combinedTranscriptions.push(segment);
-        nextEnd = segment.end
+        nextEnd = segment.end;
       }
 
       //o segmento esta antes do fim até aṕos o fim já entrou mas pode ser o ultimo
-      if ( segment.start < segmentEnd && segmentEnd < segment.end ){
-        isEndOfSentence = endOfSentence.test(segment.text)
+      if (segment.start < segmentEnd && segmentEnd < segment.end) {
+        isEndOfSentence = endOfSentence.test(segment.text);
       }
 
       //o segmento esta depois do fim mas não teve final de sentença ainda
-      if (segmentEnd < segment.start && !isEndOfSentence){
+      if (segmentEnd < segment.start && !isEndOfSentence) {
         combinedTranscriptions.push(segment);
-        nextEnd = segment.end
-        isEndOfSentence = endOfSentence.test(segment.text)
+        nextEnd = segment.end;
+        isEndOfSentence = endOfSentence.test(segment.text);
       }
     });
   });
 
   return combinedTranscriptions;
-};
+}
 
-
-const generateSubtitlesFromSegments = (segments) => {
+function generateSubtitlesFromSegments(segments) {
   let subtitles = '';
 
   subtitles += `[Script Info]\n`;
@@ -302,14 +302,13 @@ const generateSubtitlesFromSegments = (segments) => {
   });
 
   return subtitles;
-};
+}
 
-
-const formatTime = (seconds) => {
+function formatTime(seconds) {
   const date = new Date(0);
   date.setSeconds(seconds);
   return date.toISOString().substr(11, 8) + ',000';
-};
+}
 
 function saveObjectWithHash(filePath, obj) {
   // Ler o conteúdo do arquivo
@@ -328,7 +327,6 @@ function saveObjectWithHash(filePath, obj) {
   // Salvar o objeto no arquivo
   fs.writeFileSync(path.join(path.dirname(filePath),fileName),jsonString,'utf-8')
 }
-
 
 function loadObjectWithHash(filePath) {
   // Ler o conteúdo do arquivo
